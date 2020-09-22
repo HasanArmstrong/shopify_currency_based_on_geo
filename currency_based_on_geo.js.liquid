@@ -9,6 +9,8 @@ const updateCartCurrencyObj = {
   'GB': 'GBP',
   'US': 'USD',
   'AUS': 'AUD'
+  'FR': 'EUR',
+  'CA': 'CAD'
 }
 
 const currencySymbols = {
@@ -72,11 +74,10 @@ function cartCurrencyCookie() {
 
 if(Cookies.get('set_currency') === undefined) {
   console.log('set_currency is not defined');
+  // See geojs API here https://www.geojs.io/docs/v1/endpoints/geo/ 
   $.getJSON('https://get.geojs.io/v1/ip/country.json', function(data) {
     let geoCurrency = updateCartCurrencyObj[data.country];
     if(geoCurrency == undefined){
-      updateCartCurrency(geoCurrency);
-    } else {
       updateCartCurrency(geoCurrency);
     }
   });
