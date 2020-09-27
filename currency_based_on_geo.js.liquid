@@ -1,85 +1,159 @@
+// popup.liquid
+
+<div id="myModal" class="modal geo-redirect-popup">
+  <!-- Modal content -->
+  <div class="geo-redirect-popup__modal-content">
+    <p class="geo-redirect-popup__title">Where are we shipping to?</p>
+    <div class="geo-redirect-popup__country-flag-wrapper">
+      <img data-country-code="" class="geo-redirect-popup__country-flag" src="https://via.placeholder.com/160">
+    </div>
+     <div class="geo-redirect-popup__other-countries-section">
+      <h3>Other countries</h3>
+     <div class="geo-redirect-popup__other-countries-wrapper">
+      <img data-country-currency="USD" class="geo-redirect-popup__other-country-flag" src="https://flagcdn.com/84x63/us.png"/>
+      <img data-country-currency="AUD" class="geo-redirect-popup__other-country-flag" src="https://flagcdn.com/84x63/au.png"/>
+      <img data-country-currency="EUR" class="geo-redirect-popup__other-country-flag" src="https://flagcdn.com/84x63/fr.png"/>
+     </div>
+    </div>
+  </div>
+</div>
+
 // theme.liquid (add script libraries before closing body tag)
 
-<script src="https://cdn.shopify.com/s/javascripts/currencies.js"  async="async"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-cookie@rc/dist/js.cookie.min.js"></script>
+
+{% include 'popup' %}
 
 // theme.js
 
-const updateCartCurrencyObj = {
-  'GB': 'GBP',
-  'US': 'USD',
-  'AUS': 'AUD'
-  'FR': 'EUR',
-  'CA': 'CAD'
-}
-
-const currencySymbols = {
-  'USD': '$',
-  'EUR': '€',
-  'GBP': '£',
-  'AUD': '$',
-  'CAD': '$'
-}
-
-// Currency select dropdown
-let $currencySelect = $('.shopify-currency-form select');
-
-function roundNumberToNearestWhole(convertedPrice) {
-  return convertedPrice.toFixed(2);
-}
-
-function convertPriceToInt(rawPrice, defaultCurrency) {
-  if (defaultCurrency == 'EUR') {
-    rawPrice = rawPrice.replace(",",".");
-  }
-  return Number(rawPrice.replace(/[^0-9\.-]+/g,""));
-}
-
-function removeCurrencySymbol(string) {
-  return string.replace(/[£$€]/g, "").trim();
-}
-
-function convertPricesToChosenCurrency(defaultCurrency, newCurrency) {
-  $("span.price-item.price-item--regular").each(function() {
-    let rawPrice = $(this).html();
-    let priceAsInt = convertPriceToInt(rawPrice, defaultCurrency);
-    let convertedPrice = Currency.convert(priceAsInt,defaultCurrency,newCurrency)
-    let roundedPrice = roundNumberToNearestWhole(convertedPrice);
-    if(newCurrency == 'EUR') {
-      roundedPrice = roundedPrice.replace(".",",");
-    }
-    $(this).html(currencySymbols[newCurrency] + roundedPrice);
-  });
-}
-
-function updateCartCurrency(newCurrency) {
-  let defaultCurrency = cartCurrencyCookie();
-
+function updateCurrency(newCurrency) {
   $.ajax({
     url: '/cart/update.js',
     dataType: 'JSON',
     type: 'POST',
     contentType: 'application/json',
-    data: JSON.stringify({"currency": newCurrency})
+    data: JSON.stringify({"currency": newCurrency}),
+    success: function(){ 
+      location.reload();
+      Cookies.set('set_currency', 'true', { expires: 7 })
+    },
+    error: function(){
+      alert('error!');
+    }
   });
-
-  $currencySelect.children().removeAttr("selected");
-  $currencySelect.find(`option:contains(${newCurrency})`).prop('selected', true)
-  convertPricesToChosenCurrency(defaultCurrency,newCurrency);
 }
 
 function cartCurrencyCookie() {
   return Cookies.get('cart_currency')
 }
 
+const countryToCurrency = {
+  'GB': 'GBP',
+  'US': 'USD',
+  'AUS': 'AUD',
+  'FR': 'EUR'
+}
+
+let $mainFlag = $('.geo-redirect-popup__country-flag');
+
 if(Cookies.get('set_currency') === undefined) {
-  console.log('set_currency is not defined');
-  // See geojs API here https://www.geojs.io/docs/v1/endpoints/geo/ 
   $.getJSON('https://get.geojs.io/v1/ip/country.json', function(data) {
-    let geoCurrency = updateCartCurrencyObj[data.country];
-    if(geoCurrency == undefined){
-      updateCartCurrency(geoCurrency);
+    let countryCode = data.country;
+    $mainFlag.attr('data-country-code', countryCode);
+    $mainFlag.attr('src', `https://flagcdn.com/w160/${countryCode.toLowerCase()}.png`);
+    addRedirectToFlags($mainFlag)
+    $('.geo-redirect-popup').addClass('modal--is-active');
+  });
+}
+
+// click event listener, so which grabs countrycode of flag and sends request to shopify to update currency
+function addRedirectToFlags($mainFlag) {
+  let mainFlagCountryCode = $mainFlag.data('country-code');
+
+  $mainFlag.on('click', function() {
+    let mainFlagCountryCurrency = countryToCurrency[mainFlagCountryCode]
+    updateCurrency(mainFlagCountryCurrency)
+  });
+  
+  $('.geo-redirect-popup__other-countries-wrapper .geo-redirect-popup__other-country-flag').each(function(i,flag) {
+    let otherFlagCountryCode = $(flag).data('country-code');
+    if(otherFlagCountryCode == mainFlagCountryCode) {
+      flag.hide()
+    } else {
+     $(flag).on('click', function() {
+       let otherFlagCountryCurrency = countryToCurrency[otherFlagCountryCode];
+       updateCurrency(otherFlagCountryCurrency);
+     });
     }
   });
-  Cookies.set('set_currency', 'true', { expires: 7 })
+}
+
+// theme.scss (styling for popup)
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 200; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content */
+.geo-redirect-popup__modal-content {
+  background-color: #fefefe;
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 50%;
+}
+
+/* The Close Button */
+.close {
+  color: #aaaaaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.geo-redirect-popup__title {
+  display: flex;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.geo-redirect-popup__country-flag-wrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.geo-redirect-popup__country-flag {
+  cursor: pointer;
+}
+
+.geo-redirect-popup__other-country-flag {
+ margin-right: 2.5%; 
+ cursor: pointer;
+}
+
+.geo-redirect-popup__other-countries-section {
+ text-align: center; 
+ margin-top: 5%;
+}
+
+.geo-redirect-popup__other-countries-wrapper {
+ text-align: center; 
 }
